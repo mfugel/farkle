@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Farkle</title>
-    <meta name="description" content="Perfect Farkle – Correct scoring, no false highlights!">
+    <title>FARKLE v0.2 – Sound Toggle + Perfect Multiplayer</title>
+    <meta name="description" content="FARKLE v0.2 – The flawless version with SVG dice, perfect scoring, hot-seat multiplayer + new sound on/off button">
     <style>
         :root{--d1:#ff6b6b;--d2:#4834d4;--d3:#00d2d3;--d4:#ff9ff3;--d5:#54a0ff;--d6:#5f27cd}
         body{font-family:Segoe UI,Tahoma,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;margin:0;padding:20px;min-height:100vh}
@@ -20,7 +20,8 @@
         button{background:#3498db;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;font-weight:bold;transition:.2s}
         button:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.3)}
         button:disabled{opacity:.5;cursor:not-allowed}
-        .top-controls{display:flex;justify-content:center;gap:15px;margin:20px 0;flex-wrap:wrap}
+        .top-controls{display:flex;justify-content:center;gap:15px;margin:20px 0;flex-wrap:wrap;align-items:center}
+        .sound-btn{background:#9b59b6 !important}
         .current-player,.target-score{font-size:1.5em;text-align:center;margin:15px 0;padding:12px;background:rgba(255,255,255,.15);border-radius:12px}
         .dice-container{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:30px 0;perspective:600px}
         .die{width:70px;height:70px;border-radius:12px;cursor:pointer;transition:.3s;box-shadow:0 4px 12px rgba(0,0,0,.3);border:4px solid transparent;position:relative;overflow:hidden}
@@ -32,7 +33,7 @@
         .die.d1{background:var(--d1)}.die.d2{background:var(--d2)}.die.d3{background:var(--d3)}.die.d4{background:var(--d4)}.die.d5{background:var(--d5)}.die.d6{background:var(--d6)}
         .die svg{width:100%;height:100%}
         .dot{fill:#fff}
-        .score-board{display:grid;grid-template-columns:repeat(auto-fit,minminmax(180px,1fr));gap:12px;margin:20px 0}
+        .score-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:20px 0}
         .player-score{background:rgba(255,255,255,.15);padding:12px;border-radius:12px;text-align:center}
         .player-score.current{border:3px solid #f1c40f;transform:scale(1.05)}
         .player-score.winner{border:3px solid #2ecc71;background:rgba(46,204,113,.3)}
@@ -48,7 +49,7 @@
 </head>
 <body>
 <div class="c">
-    <h1>FARKLE</h1>
+    <h1>FARKLE v0.2</h1>
     <div id="setup" class="setup">
         <h2>Game Setup</h2>
         <div class="setup-row">
@@ -61,11 +62,11 @@
         </div>
         <div style="margin-top:20px"><button id="startGame" style="background:#2ecc71;font-size:1.2em;padding:14px 32px">Start Game</button></div>
     </div>
-
     <div id="game" style="display:none">
         <div class="top-controls">
             <button id="rollBtn">Roll Dice</button>
             <button id="bankBtn" disabled>Bank Score</button>
+            <button id="soundBtn" class="sound-btn">Sound On</button>
             <button id="newGameBtn" style="background:#95a5a6">New Game</button>
         </div>
         <div class="current-player" id="currentPlayer"></div>
@@ -83,21 +84,23 @@
 </div>
 
 <script>
-    // Sound effects
+    // ========= v0.2 NEW: Sound control =========
+    let soundEnabled = true;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playWin() { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type='sine'; o.connect(g); g.connect(audioCtx.destination);
-        o.frequency.setValueAtTime(523.25, audioCtx.currentTime); o.frequency.setValueAtTime(659.25, audioCtx.currentTime+0.1);
-        o.frequency.setValueAtTime(783.99, audioCtx.currentTime+0.2); o.frequency.setValueAtTime(1046.50, audioCtx.currentTime+0.3);
-        g.gain.setValueAtTime(0.4, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+1.2);
-        o.start(); o.stop(audioCtx.currentTime+1.2); }
-    function playFarkle() { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type='sawtooth'; o.connect(g); g.connect(audioCtx.destination);
-        o.frequency.setValueAtTime(300, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime+0.6);
-        g.gain.setValueAtTime(0.5, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.7);
-        o.start(); o.stop(audioCtx.currentTime+0.7); }
-    function playRoll() { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type='square'; o.connect(g); g.connect(audioCtx.destination);
-        o.frequency.setValueAtTime(120, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime+0.12);
-        g.gain.setValueAtTime(0.2, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.15);
-        o.start(); o.stop(audioCtx.currentTime+0.15); }
+
+    function playWin() { if(!soundEnabled) return; const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.connect(g);g.connect(audioCtx.destination);
+        o.frequency.setValueAtTime(523.25,audioCtx.currentTime);o.frequency.setValueAtTime(659.25,audioCtx.currentTime+0.1);
+        o.frequency.setValueAtTime(783.99,audioCtx.currentTime+0.2);o.frequency.setValueAtTime(1046.50,audioCtx.currentTime+0.3);
+        g.gain.setValueAtTime(0.4,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+1.2);
+        o.start();o.stop(audioCtx.currentTime+1.2); }
+    function playFarkle() { if(!soundEnabled) return; const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sawtooth';o.connect(g);g.connect(audioCtx.destination);
+        o.frequency.setValueAtTime(300,audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(80,audioCtx.currentTime+0.6);
+        g.gain.setValueAtTime(0.5,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.7);
+        o.start();o.stop(audioCtx.currentTime+0.7); }
+    function playRoll() { if(!soundEnabled) return; const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='square';o.connect(g);g.connect(audioCtx.destination);
+        o.frequency.setValueAtTime(120,audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(60,audioCtx.currentTime+0.12);
+        g.gain.setValueAtTime(0.2,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.15);
+        o.start();o.stop(audioCtx.currentTime+0.15); }
 
     const state = {
         players: [], scores: [], currentPlayer: 0,
@@ -111,11 +114,12 @@
         winScore: document.getElementById('winScore'), targetScore: document.getElementById('targetScore'),
         addPlayer: document.getElementById('addPlayer'), startGame: document.getElementById('startGame'),
         playerList: document.getElementById('playerList'), rollBtn: document.getElementById('rollBtn'),
-        bankBtn: document.getElementById('bankBtn'), newGameBtn: document.getElementById('newGameBtn'),
-        diceContainer: document.getElementById('diceContainer'), currentPlayer: document.getElementById('currentPlayer'),
-        turnScore: document.getElementById('turnScore'), selectedScore: document.getElementById('selectedScore'),
-        rollScore: document.getElementById('rollScore'), statusMessage: document.getElementById('statusMessage'),
-        scoreBoard: document.getElementById('scoreBoard'), gameLog: document.getElementById('gameLog')
+        bankBtn: document.getElementById('bankBtn'), soundBtn: document.getElementById('soundBtn'),
+        newGameBtn: document.getElementById('newGameBtn'), diceContainer: document.getElementById('diceContainer'),
+        currentPlayer: document.getElementById('currentPlayer'), turnScore: document.getElementById('turnScore'),
+        selectedScore: document.getElementById('selectedScore'), rollScore: document.getElementById('rollScore'),
+        statusMessage: document.getElementById('statusMessage'), scoreBoard: document.getElementById('scoreBoard'),
+        gameLog: document.getElementById('gameLog')
     };
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -129,6 +133,10 @@
         els.rollBtn.onclick = rollDice;
         els.bankBtn.onclick = bankScore;
         els.newGameBtn.onclick = () => confirm('New game?') && location.reload();
+        els.soundBtn.onclick = () => {
+            soundEnabled = !soundEnabled;
+            els.soundBtn.textContent = soundEnabled ? 'Sound On' : 'Sound Off';
+        };
         els.playerList.onclick = e => { if (e.target.classList.contains('remove-player')) e.target.parentElement.remove(); };
     });
 
@@ -154,21 +162,21 @@
         log(`${state.players[state.currentPlayer]}'s turn`);
     }
 
-    function updateCurrentPlayer() { els.currentPlayer.textContent = `${state.players[state.currentPlayer]}'s Turn`; }
+    function updateCurrentPlayer() { 
+        els.currentPlayer.textContent = `${state.players[state.currentPlayer]}'s Turn`; 
+    }
 
     function calculateScoringDice(diceValues) {
         const count = {};
         diceValues.forEach(v => count[v] = (count[v] || 0) + 1);
         const scoringIndices = new Set();
 
-        // Check for straight or three pairs (1500)
         if (diceValues.length === 6) {
             if (new Set(diceValues).size === 6 || (Object.values(count).every(c => c === 2) && Object.keys(count).length === 3)) {
                 return { score: 1500, indices: diceValues.map((_, i) => i) };
             }
         }
 
-        // Triples+
         for (const num of Object.keys(count)) {
             const n = Number(num);
             if (count[n] >= 3) {
@@ -180,9 +188,8 @@
             }
         }
 
-        // Single 1s and 5s
         diceValues.forEach((v, i) => {
-            if ((v === 1 && count[1] < 3) || (v === 5 && count[5] < 3)) {
+            if ((v === 1 && (!count[1] || count[1] < 3)) || (v === 5 && (!count[5] || count[5] < 3))) {
                 scoringIndices.add(i);
             }
         });
@@ -208,10 +215,8 @@
                 score += base * Math.floor(count[n] / 3);
             }
         }
-
         if (count[1] && count[1] < 3) score += count[1] * 100;
         if (count[5] && count[5] < 3) score += count[5] * 50;
-
         return score;
     }
 
@@ -219,7 +224,7 @@
         const keptValues = [...state.kept].map(i => state.dice[i]);
         state.currentRollScore = calculateScore(keptValues);
         els.selectedScore.textContent = `Selected Points: ${state.currentRollScore.toLocaleString()}`;
-        els.turnScore.textContent = state.turnTotal.toLocaleString();
+        els.turnScore.textContent = (state.turnTotal + state.currentRollScore).toLocaleString();
         els.bankBtn.disabled = (state.turnTotal + state.currentRollScore) === 0;
     }
 
@@ -237,7 +242,6 @@
         setTimeout(() => {
             const fresh = [], freshIdx = [];
             for (let i = 0; i < state.dice.length; i++) if (!state.kept.has(i)) { fresh.push(state.dice[i]); freshIdx.push(i); }
-
             const { score, indices } = calculateScoringDice(fresh);
             if (score === 0) { farkle(); return; }
 
@@ -249,7 +253,10 @@
 
             log(`Rolled: ${roll.join(', ')} → +${score}`);
             updateScoreBoard(); state.rolling = false; els.rollBtn.disabled = false;
-            if (state.activeDice === 0) setTimeout(triggerHotDice, 600);
+
+            if (state.activeDice === 0 && state.kept.size > 0) {
+                setTimeout(triggerHotDice, 600);
+            }
         }, 900);
     }
 
@@ -260,20 +267,22 @@
             die.className = `die d${val}${anim && !state.kept.has(i) ? ' rolling' : ''}`;
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('viewBox', '0 0 100 100');
-            const dots = {1:[[50,50]],2:[[25,25],[75,75]],3:[[25,25],[50,50],[75,75]],4:[[25,25],[25,75],[75,25],[75,75]],
-                          5:[[25,25],[25,75],[50,50],[75,25],[75,75]],6:[[25,25],[25,50],[25,75],[75,25],[75,50],[75,75]]};
+            const dots = {
+                1:[[50,50]],2:[[25,25],[75,75]],3:[[25,25],[50,50],[75,75]],
+                4:[[25,25],[25,75],[75,25],[75,75]],
+                5:[[25,25],[25,75],[50,50],[75,25],[75,75]],
+                6:[[25,25],[25,50],[25,75],[75,25],[75,50],[75,75]]
+            };
             dots[val].forEach(([x,y]) => {
                 const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', 8);
                 c.className = 'dot'; svg.appendChild(c);
             });
             die.appendChild(svg);
-
             die.onclick = () => {
                 if (state.rolling) return;
                 const isKept = state.kept.has(i);
                 const isScoring = die.classList.contains('scoring');
-
                 if (isKept) {
                     state.kept.delete(i); state.activeDice++;
                     die.classList.remove('kept');
@@ -284,7 +293,6 @@
                 updateScores();
                 if (state.activeDice === 0 && !state.hotDice) setTimeout(triggerHotDice, 400);
             };
-
             if (state.kept.has(i)) die.classList.add('kept');
             els.diceContainer.appendChild(die);
         });
