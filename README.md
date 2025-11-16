@@ -3,6 +3,10 @@ Repo for the Farkle Game
 
 To play the game, go the following url in your browser and it should play the latest deployed version. Add players and start the game. When you are happy with your turn and the points you have accumulated, hit the Bank Points button and it will end your turn, add your points to your overall score and indicate the next player's turn.  
 
+(after you push)
+Live at: 
+https://mfugel.github.io/farkle/ 
+
 Plase note:
 This game is under construction and has bugs as I attempt to add enhancements and fix bugs ongoing.  
 If you encounter a bug, please let me know and i will add it to issues. 
