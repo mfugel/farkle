@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FARKLE v0.3 – Confetti on Win + Sound Toggle</title>
-    <meta name="description" content="FARKLE v0.3 – Flawless multiplayer with SVG dice, perfect scoring, sound toggle + EPIC confetti explosion on victory!">
+    <title>FARKLE v0.4 – Scroll Fixed + Confetti + Sound</title>
+    <meta name="description" content="FARKLE v0.4 – Perfect multiplayer Farkle with SVG dice, sound toggle, confetti win, and now fully scrollable on all devices!">
     <style>
         :root{--d1:#ff6b6b;--d2:#4834d4;--d3:#00d2d3;--d4:#ff9ff3;--d5:#54a0ff;--d6:#5f27cd}
-        body{font-family:Segoe UI,Tahoma,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;margin:0;padding:20px;min-height:100vh;position:relative;overflow:hidden}
+        html,body{margin:0;padding:0;height:100%}
+        body{font-family:Segoe UI,Tahoma,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:20px 10px;box-sizing:border-box;min-height:100vh;overflow-y:auto}
         .c{max-width:1000px;margin:0 auto;background:rgba(0,0,0,.4);border-radius:16px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.3);position:relative;z-index:10}
         h1{text-align:center;font-size:2.8em;margin:0 0 10px;text-shadow:0 2px 4px rgba(0,0,0,.5)}
         .setup{background:rgba(255,255,255,.1);padding:20px;border-radius:12px;margin-bottom:20px;text-align:center}
@@ -50,7 +51,7 @@
 </head>
 <body>
 <div class="c">
-    <h1>FARKLE v0.3</h1>
+    <h1>FARKLE v0.4</h1>
     <div id="setup" class="setup">
         <h2>Game Setup</h2>
         <div class="setup-row">
@@ -87,7 +88,7 @@
 <canvas id="confetti"></canvas>
 
 <script>
-    // ========= v0.3: Confetti Cannon + Sound Control =========
+    // ========= v0.4: Scroll fixed + Confetti + Sound =========
     let soundEnabled = true;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -267,7 +268,7 @@
         return { score, indices: Array.from(scoringIndices) };
     }
 
-    function calculateScore(values, scoringIndices = null) {
+    function calculateScore(values) {
         if (!values.length) return 0;
         const count = {};
         values.forEach(v => count[v] = (count[v] || 0) + 1);
