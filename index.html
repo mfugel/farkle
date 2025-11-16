@@ -7,8 +7,8 @@
     <meta name="description" content="FARKLE v0.3 – Flawless multiplayer with SVG dice, perfect scoring, sound toggle + EPIC confetti explosion on victory!">
     <style>
         :root{--d1:#ff6b6b;--d2:#4834d4;--d3:#00d2d3;--d4:#ff9ff3;--d5:#54a0ff;--d6:#5f27cd}
-        body{font-family:Segoe UI,Tahoma,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;margin:0;padding:20px;min-height:100vh;position:relative;overflow-x:hidden}
-        .c{max-width:1000px;margin:0 auto;background:rgba(0,0,0,.4);border-radius:16px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+        body{font-family:Segoe UI,Tahoma,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;margin:0;padding:20px;min-height:100vh;position:relative;overflow:hidden}
+        .c{max-width:1000px;margin:0 auto;background:rgba(0,0,0,.4);border-radius:16px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.3);position:relative;z-index:10}
         h1{text-align:center;font-size:2.8em;margin:0 0 10px;text-shadow:0 2px 4px rgba(0,0,0,.5)}
         .setup{background:rgba(255,255,255,.1);padding:20px;border-radius:12px;margin-bottom:20px;text-align:center}
         .setup-row{display:flex;justify-content:center;gap:12px;margin:15px 0;flex-wrap:wrap;align-items:center}
@@ -36,4 +36,399 @@
         .score-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:20px 0}
         .player-score{background:rgba(255,255,255,.15);padding:12px;border-radius:12px;text-align:center}
         .player-score.current{border:3px solid #f1c40f;transform:scale(1.05)}
-        .player-score.winner{border:3px solid
+        .player-score.winner{border:3px solid #2ecc71;background:rgba(46,204,113,.3)}
+        .turn-info{text-align:center;margin:15px 0}
+        .selected-score{font-size:1.8em;color:#2ecc71;font-weight:bold}
+        .roll-score{font-size:1.4em;color:#f1c40f}
+        .log{max-height:120px;overflow-y:auto;background:rgba(0,0,0,.3);padding:10px;border-radius:8px;font-size:.9em;margin-top:20px}
+        .hot-dice,.farkle{font-weight:bold;font-size:1.5em}
+        .hot-dice{color:#f1c40f;animation:p 1.5s infinite}
+        .farkle{color:#e74c3c;animation:s .5s}
+        @keyframes p{50%{opacity:.7}}@keyframes s{25%,75%{transform:translateX(-5px)}}
+        canvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999}
+    </style>
+</head>
+<body>
+<div class="c">
+    <h1>FARKLE v0.3</h1>
+    <div id="setup" class="setup">
+        <h2>Game Setup</h2>
+        <div class="setup-row">
+            <label>Winning Score:</label>
+            <input type="number" id="winScore" value="10000" min="1000" step="1000">
+        </div>
+        <div class="setup-row"><button id="addPlayer">Add Player</button></div>
+        <div class="player-list" id="playerList">
+            <div class="player-item"><input type="text" value="Player 1"><button class="remove-player">×</button></div>
+        </div>
+        <div style="margin-top:20px"><button id="startGame" style="background:#2ecc71;font-size:1.2em;padding:14px 32px">Start Game</button></div>
+    </div>
+    <div id="game" style="display:none">
+        <div class="top-controls">
+            <button id="rollBtn">Roll Dice</button>
+            <button id="bankBtn" disabled>Bank Score</button>
+            <button id="soundBtn" class="sound-btn">Sound On</button>
+            <button id="newGameBtn" style="background:#95a5a6">New Game</button>
+        </div>
+        <div class="current-player" id="currentPlayer"></div>
+        <div class="target-score" id="targetScore">First to <strong>10,000</strong> wins!</div>
+        <div class="dice-container" id="diceContainer"></div>
+        <div class="turn-info">
+            <div class="selected-score" id="selectedScore">Selected Points: 0</div>
+            <div class="roll-score" id="rollScore"></div>
+            <div>Turn Total: <strong id="turnScore">0</strong></div>
+            <div id="statusMessage"></div>
+        </div>
+        <div class="score-board" id="scoreBoard"></div>
+        <div class="log" id="gameLog"></div>
+    </div>
+</div>
+
+<canvas id="confetti"></canvas>
+
+<script>
+    // ========= v0.3: Confetti Cannon + Sound Control =========
+    let soundEnabled = true;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playWin() { if(!soundEnabled) return; const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.connect(g);g.connect(audioCtx.destination);
+        o.frequency.setValueAtTime(523.25,audioCtx.currentTime);o.frequency.setValueAtTime(659.25,audioCtx.currentTime+0.1);
+        o.frequency.setValueAtTime(783.99,audioCtx.currentTime+0.2);o.frequency.setValueAtTime(1046.50,audioCtx.currentTime+0.3);
+        g.gain.setValueAtTime(0.4,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+1.2);
+        o.start();o.stop(audioCtx.currentTime+1.2); }
+    function playFarkle() { if(!soundEnabled) return; const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sawtooth';o.connect(g);g.connect(audioCtx.destination);
+        o.frequency.setValueAtTime(300,audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(80,audioCtx.currentTime+0.6);
+        g.gain.setValueAtTime(0.5,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.7);
+        o.start();o.stop(audioCtx.currentTime+0.7); }
+    function playRoll() { if(!soundEnabled) return; const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='square';o.connect(g);g.connect(audioCtx.destination);
+        o.frequency.setValueAtTime(120,audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(60,audioCtx.currentTime+0.12);
+        g.gain.setValueAtTime(0.2,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.15);
+        o.start();o.stop(audioCtx.currentTime+0.15); }
+
+    // Confetti System
+    const confettiCanvas = document.getElementById('confetti');
+    const ctx = confettiCanvas.getContext('2d');
+    let confettiParticles = [];
+    let animationId = null;
+
+    function resizeCanvas() {
+        confettiCanvas.width = window.innerWidth;
+        confettiCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function randomColor() {
+        const colors = ['#ff6b6b','#4834d4','#00d2d3','#ff9ff3','#54a0ff','#5f27cd','#f1c40f','#2ecc71'];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function createConfetti() {
+        const particleCount = 300;
+        for (let i = 0; i < particleCount; i++) {
+            confettiParticles.push({
+                x: Math.random() * confettiCanvas.width,
+                y: Math.random() * confettiCanvas.height - confettiCanvas.height,
+                r: Math.random() * 6 + 2,
+                d: Math.random() * particleCount / 30 + 1,
+                color: randomColor(),
+                tilt: Math.random() * 10 - 10,
+                tiltAngleIncremental: Math.random() * 0.08 + 0.01,
+                tiltAngle: 0
+            });
+        }
+    }
+
+    function drawConfetti() {
+        ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        confettiParticles.forEach((p, i) => {
+            p.tiltAngle += p.tiltAngleIncremental;
+            p.y += p.d + Math.sin(p.tiltAngle) * 0.5;
+            p.tilt = Math.sin(p.tiltAngle) * 15;
+
+            if (p.y > confettiCanvas.height) confettiParticles.splice(i, 1);
+            else {
+                ctx.beginPath();
+                ctx.lineWidth = p.r;
+                ctx.strokeStyle = p.color;
+                ctx.moveTo(p.x + p.tilt + p.r / 2, p.y);
+                ctx.lineTo(p.x + p.tilt - p.r / 2, p.y + p.r);
+                ctx.stroke();
+            }
+        });
+
+        if (confettiParticles.length > 0) {
+            animationId = requestAnimationFrame(drawConfetti);
+        }
+    }
+
+    function triggerConfetti() {
+        createConfetti();
+        setTimeout(() => {
+            createConfetti();
+            setTimeout(createConfetti, 200);
+        }, 100);
+        drawConfetti();
+    }
+
+    const state = {
+        players: [], scores: [], currentPlayer: 0,
+        turnTotal: 0, currentRollScore: 0,
+        dice: [], kept: new Set(), activeDice: 6,
+        winScore: 10000, rolling: false, hotDice: false
+    };
+
+    const els = {
+        setup: document.getElementById('setup'), game: document.getElementById('game'),
+        winScore: document.getElementById('winScore'), targetScore: document.getElementById('targetScore'),
+        addPlayer: document.getElementById('addPlayer'), startGame: document.getElementById('startGame'),
+        playerList: document.getElementById('playerList'), rollBtn: document.getElementById('rollBtn'),
+        bankBtn: document.getElementById('bankBtn'), soundBtn: document.getElementById('soundBtn'),
+        newGameBtn: document.getElementById('newGameBtn'), diceContainer: document.getElementById('diceContainer'),
+        currentPlayer: document.getElementById('currentPlayer'), turnScore: document.getElementById('turnScore'),
+        selectedScore: document.getElementById('selectedScore'), rollScore: document.getElementById('rollScore'),
+        statusMessage: document.getElementById('statusMessage'), scoreBoard: document.getElementById('scoreBoard'),
+        gameLog: document.getElementById('gameLog')
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        els.addPlayer.onclick = () => {
+            if (els.playerList.children.length >= 6) return alert('Max 6 players');
+            const d = document.createElement('div'); d.className = 'player-item';
+            d.innerHTML = `<input type="text" value="Player ${els.playerList.children.length + 1}"><button class="remove-player">×</button>`;
+            els.playerList.appendChild(d);
+        };
+        els.startGame.onclick = startGame;
+        els.rollBtn.onclick = rollDice;
+        els.bankBtn.onclick = bankScore;
+        els.newGameBtn.onclick = () => confirm('New game?') && location.reload();
+        els.soundBtn.onclick = () => {
+            soundEnabled = !soundEnabled;
+            els.soundBtn.textContent = soundEnabled ? 'Sound On' : 'Sound Off';
+        };
+        els.playerList.onclick = e => { if (e.target.classList.contains('remove-player')) e.target.parentElement.remove(); };
+    });
+
+    function startGame() {
+        const names = [...els.playerList.querySelectorAll('input')].map(i => i.value.trim() || 'Player');
+        if (!names.length) return alert('Add at least one player');
+        state.players = names; state.scores = names.map(() => 0);
+        state.winScore = Math.max(1000, parseInt(els.winScore.value) || 10000);
+        els.targetScore.innerHTML = `First to <strong>${state.winScore.toLocaleString()}</strong> wins!`;
+        els.setup.style.display = 'none'; els.game.style.display = 'block';
+        nextTurn(); log('Game started!');
+    }
+
+    function nextTurn() {
+        state.turnTotal = 0; state.currentRollScore = 0;
+        state.dice = []; state.kept.clear(); state.activeDice = 6;
+        state.hotDice = false; state.rolling = false;
+        els.diceContainer.innerHTML = '';
+        els.turnScore.textContent = '0'; els.selectedScore.textContent = 'Selected Points: 0';
+        els.rollScore.textContent = ''; els.statusMessage.textContent = '';
+        els.bankBtn.disabled = true; els.rollBtn.disabled = false;
+        updateCurrentPlayer(); updateScoreBoard();
+        log(`${state.players[state.currentPlayer]}'s turn`);
+    }
+
+    function updateCurrentPlayer() { 
+        els.currentPlayer.textContent = `${state.players[state.currentPlayer]}'s Turn`; 
+    }
+
+    function calculateScoringDice(diceValues) {
+        const count = {};
+        diceValues.forEach(v => count[v] = (count[v] || 0) + 1);
+        const scoringIndices = new Set();
+
+        if (diceValues.length === 6) {
+            if (new Set(diceValues).size === 6 || (Object.values(count).every(c => c === 2) && Object.keys(count).length === 3)) {
+                return { score: 1500, indices: diceValues.map((_, i) => i) };
+            }
+        }
+
+        for (const num of Object.keys(count)) {
+            const n = Number(num);
+            if (count[n] >= 3) {
+                const groups = Math.floor(count[n] / 3);
+                let marked = 0;
+                for (let i = 0; i < diceValues.length && marked < groups * 3; i++) {
+                    if (diceValues[i] === n) { scoringIndices.add(i); marked++; }
+                }
+            }
+        }
+
+        diceValues.forEach((v, i) => {
+            if ((v === 1 && (!count[1] || count[1] < 3)) || (v === 5 && (!count[5] || count[5] < 3))) {
+                scoringIndices.add(i);
+            }
+        });
+
+        const score = calculateScore(diceValues, scoringIndices);
+        return { score, indices: Array.from(scoringIndices) };
+    }
+
+    function calculateScore(values, scoringIndices = null) {
+        if (!values.length) return 0;
+        const count = {};
+        values.forEach(v => count[v] = (count[v] || 0) + 1);
+        let score = 0;
+
+        if (values.length === 6 && (new Set(values).size === 6 || (Object.values(count).every(c => c === 2) && Object.keys(count).length === 3))) {
+            return 1500;
+        }
+
+        for (const num of Object.keys(count)) {
+            const n = Number(num);
+            if (count[n] >= 3) {
+                const base = n === 1 ? 1000 : n * 100;
+                score += base * Math.floor(count[n] / 3);
+            }
+        }
+        if (count[1] && count[1] < 3) score += count[1] * 100;
+        if (count[5] && count[5] < 3) score += count[5] * 50;
+        return score;
+    }
+
+    function updateScores() {
+        const keptValues = [...state.kept].map(i => state.dice[i]);
+        state.currentRollScore = calculateScore(keptValues);
+        els.selectedScore.textContent = `Selected Points: ${state.currentRollScore.toLocaleString()}`;
+        els.turnScore.textContent = (state.turnTotal + state.currentRollScore).toLocaleString();
+        els.bankBtn.disabled = (state.turnTotal + state.currentRollScore) === 0;
+    }
+
+    function rollDice() {
+        if (state.rolling || state.activeDice === 0) return;
+        state.rolling = true; els.rollBtn.disabled = true; playRoll();
+
+        const roll = Array.from({length: state.activeDice}, () => Math.floor(Math.random() * 6) + 1);
+        let idx = 0;
+        if (!state.dice.length) state.dice = roll;
+        else for (let i = 0; i < state.dice.length; i++) if (!state.kept.has(i)) state.dice[i] = roll[idx++];
+
+        renderDice(true);
+
+        setTimeout(() => {
+            const fresh = [], freshIdx = [];
+            for (let i = 0; i < state.dice.length; i++) if (!state.kept.has(i)) { fresh.push(state.dice[i]); freshIdx.push(i); }
+            const { score, indices } = calculateScoringDice(fresh);
+            if (score === 0) { farkle(); return; }
+
+            els.rollScore.textContent = `This roll can score: +${score}`;
+            indices.forEach(localIdx => {
+                const globalIdx = freshIdx[localIdx];
+                els.diceContainer.children[globalIdx].classList.add('scoring');
+            });
+
+            log(`Rolled: ${roll.join(', ')} → +${score}`);
+            updateScoreBoard(); state.rolling = false; els.rollBtn.disabled = false;
+
+            if (state.activeDice === 0 && state.kept.size > 0) {
+                setTimeout(triggerHotDice, 600);
+            }
+        }, 900);
+    }
+
+    function renderDice(anim = false) {
+        els.diceContainer.innerHTML = '';
+        state.dice.forEach((val, i) => {
+            const die = document.createElement('div');
+            die.className = `die d${val}${anim && !state.kept.has(i) ? ' rolling' : ''}`;
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 100 100');
+            const dots = {
+                1:[[50,50]],2:[[25,25],[75,75]],3:[[25,25],[50,50],[75,75]],
+                4:[[25,25],[25,75],[75,25],[75,75]],
+                5:[[25,25],[25,75],[50,50],[75,25],[75,75]],
+                6:[[25,25],[25,50],[25,75],[75,25],[75,50],[75,75]]
+            };
+            dots[val].forEach(([x,y]) => {
+                const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', 8);
+                c.className = 'dot'; svg.appendChild(c);
+            });
+            die.appendChild(svg);
+            die.onclick = () => {
+                if (state.rolling) return;
+                const isKept = state.kept.has(i);
+                const isScoring = die.classList.contains('scoring');
+                if (isKept) {
+                    state.kept.delete(i); state.activeDice++;
+                    die.classList.remove('kept');
+                } else if (isScoring || state.kept.size > 0) {
+                    state.kept.add(i); state.activeDice--;
+                    die.classList.remove('scoring'); die.classList.add('kept');
+                }
+                updateScores();
+                if (state.activeDice === 0 && !state.hotDice) setTimeout(triggerHotDice, 400);
+            };
+            if (state.kept.has(i)) die.classList.add('kept');
+            els.diceContainer.appendChild(die);
+        });
+        updateScores();
+    }
+
+    function triggerHotDice() {
+        state.hotDice = true;
+        state.turnTotal += state.currentRollScore;
+        state.currentRollScore = 0;
+        state.activeDice = 6; state.kept.clear(); state.dice = [];
+        els.diceContainer.innerHTML = '';
+        els.statusMessage.textContent = 'HOT DICE! Rolling all 6 again!';
+        els.statusMessage.className = 'hot-dice';
+        log('HOT DICE!');
+        setTimeout(() => { state.hotDice = false; rollDice(); }, 1200);
+    }
+
+    function bankScore() {
+        if (state.turnTotal + state.currentRollScore === 0) return;
+        state.turnTotal += state.currentRollScore;
+        state.scores[state.currentPlayer] += state.turnTotal;
+        log(`${state.players[state.currentPlayer]} banks ${state.turnTotal.toLocaleString()}!`);
+        updateScoreBoard();
+        if (state.scores[state.currentPlayer] >= state.winScore) { 
+            playWin(); 
+            triggerConfetti(); 
+            endGame(); 
+            return; 
+        }
+        state.currentPlayer = (state.currentPlayer + 1) % state.players.length;
+        setTimeout(nextTurn, 800);
+    }
+
+    function farkle() {
+        playFarkle();
+        els.statusMessage.textContent = 'FARKLE!';
+        els.statusMessage.className = 'farkle';
+        log(`${state.players[state.currentPlayer]} farkled!`);
+        setTimeout(() => { state.currentPlayer = (state.currentPlayer + 1) % state.players.length; nextTurn(); }, 2000);
+    }
+
+    function updateScoreBoard() {
+        els.scoreBoard.innerHTML = '';
+        state.players.forEach((name, i) => {
+            const div = document.createElement('div');
+            div.className = `player-score${i === state.currentPlayer ? ' current' : ''}${state.scores[i] >= state.winScore ? ' winner' : ''}`;
+            div.innerHTML = `<div style="font-weight:bold">${name}</div>
+                             <div style="font-size:1.4em">${state.scores[i].toLocaleString()}</div>
+                             ${i === state.currentPlayer && state.turnTotal > 0 ? `<div style="color:#2ecc71">+${state.turnTotal.toLocaleString()}</div>` : ''}`;
+            els.scoreBoard.appendChild(div);
+        });
+    }
+
+    function endGame() {
+        els.rollBtn.disabled = els.bankBtn.disabled = true;
+        els.statusMessage.innerHTML = `${state.players[state.currentPlayer]} WINS!`;
+        els.statusMessage.style.color = '#2ecc71'; els.statusMessage.style.fontSize = '2.5em';
+        log(`WINNER: ${state.players[state.currentPlayer]}!`);
+    }
+
+    function log(msg) {
+        const line = document.createElement('div');
+        line.textContent = `> ${msg}`;
+        els.gameLog.appendChild(line);
+        els.gameLog.scrollTop = els.gameLog.scrollHeight;
+    }
+</script>
+</body>
+</html>
