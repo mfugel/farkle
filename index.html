@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FARKLE v0.4 – Scroll Fixed + Confetti + Sound</title>
-    <meta name="description" content="FARKLE v0.4 – Perfect multiplayer Farkle with SVG dice, sound toggle, confetti win, and now fully scrollable on all devices!">
+    <title>FARKLE v0.5 – Hot Dice & Four-of-a-Kind Fixed</title>
+    <meta name="description" content="FARKLE v0.5 – Perfect multiplayer Farkle with correct Hot Dice scoring, four-of-a-kind recognition, confetti, sound, and scrolling">
     <style>
         :root{--d1:#ff6b6b;--d2:#4834d4;--d3:#00d2d3;--d4:#ff9ff3;--d5:#54a0ff;--d6:#5f27cd}
         html,body{margin:0;padding:0;height:100%}
@@ -51,7 +51,7 @@
 </head>
 <body>
 <div class="c">
-    <h1>FARKLE v0.4</h1>
+    <h1>FARKLE v0.5</h1>
     <div id="setup" class="setup">
         <h2>Game Setup</h2>
         <div class="setup-row">
@@ -88,7 +88,7 @@
 <canvas id="confetti"></canvas>
 
 <script>
-    // ========= v0.4: Scroll fixed + Confetti + Sound =========
+    // ========= v0.5: Fixed Hot Dice scoring + Four-of-a-Kind + Confetti + Sound + Scroll =========
     let soundEnabled = true;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -106,107 +106,27 @@
         g.gain.setValueAtTime(0.2,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.15);
         o.start();o.stop(audioCtx.currentTime+0.15); }
 
-    // Confetti System
+    // Confetti System (unchanged)
     const confettiCanvas = document.getElementById('confetti');
     const ctx = confettiCanvas.getContext('2d');
     let confettiParticles = [];
-    let animationId = null;
+    function resizeCanvas() { confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; }
+    window.addEventListener('resize', resizeCanvas); resizeCanvas();
+    function randomColor() { return ['#ff6b6b','#4834d4','#00d2d3','#ff9ff3','#54a0ff','#5f27cd','#f1c40f','#2ecc71'][Math.floor(Math.random()*8)]; }
+    function createConfetti() { for(let i=0;i<300;i++) confettiParticles.push({x:Math.random()*confettiCanvas.width,y:Math.random()*confettiCanvas.height-confettiCanvas.height,r:Math.random()*6+2,d:Math.random()*10+1,color:randomColor(),tilt:Math.random()*10-10,tiltAngleIncremental:Math.random()*0.08+0.01,tiltAngle:0}); }
+    function drawConfetti() { ctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height); confettiParticles.forEach((p,i)=>{p.tiltAngle+=p.tiltAngleIncremental;p.y+=p.d+Math.sin(p.tiltAngle)*0.5;p.tilt=Math.sin(p.tiltAngle)*15;if(p.y>confettiCanvas.height)confettiParticles.splice(i,1);else{ctx.beginPath();ctx.lineWidth=p.r;ctx.strokeStyle=p.color;ctx.moveTo(p.x+p.tilt+p.r/2,p.y);ctx.lineTo(p.x+p.tilt-p.r/2,p.y+p.r);ctx.stroke();}}); if(confettiParticles.length>0) requestAnimationFrame(drawConfetti); }
+    function triggerConfetti() { createConfetti(); setTimeout(()=>{createConfetti();setTimeout(createConfetti,200);},100); drawConfetti(); }
 
-    function resizeCanvas() {
-        confettiCanvas.width = window.innerWidth;
-        confettiCanvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-
-    function randomColor() {
-        const colors = ['#ff6b6b','#4834d4','#00d2d3','#ff9ff3','#54a0ff','#5f27cd','#f1c40f','#2ecc71'];
-        return colors[Math.floor(Math.random() * colors.length)];
-    }
-
-    function createConfetti() {
-        const particleCount = 300;
-        for (let i = 0; i < particleCount; i++) {
-            confettiParticles.push({
-                x: Math.random() * confettiCanvas.width,
-                y: Math.random() * confettiCanvas.height - confettiCanvas.height,
-                r: Math.random() * 6 + 2,
-                d: Math.random() * particleCount / 30 + 1,
-                color: randomColor(),
-                tilt: Math.random() * 10 - 10,
-                tiltAngleIncremental: Math.random() * 0.08 + 0.01,
-                tiltAngle: 0
-            });
-        }
-    }
-
-    function drawConfetti() {
-        ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-        confettiParticles.forEach((p, i) => {
-            p.tiltAngle += p.tiltAngleIncremental;
-            p.y += p.d + Math.sin(p.tiltAngle) * 0.5;
-            p.tilt = Math.sin(p.tiltAngle) * 15;
-
-            if (p.y > confettiCanvas.height) confettiParticles.splice(i, 1);
-            else {
-                ctx.beginPath();
-                ctx.lineWidth = p.r;
-                ctx.strokeStyle = p.color;
-                ctx.moveTo(p.x + p.tilt + p.r / 2, p.y);
-                ctx.lineTo(p.x + p.tilt - p.r / 2, p.y + p.r);
-                ctx.stroke();
-            }
-        });
-
-        if (confettiParticles.length > 0) {
-            animationId = requestAnimationFrame(drawConfetti);
-        }
-    }
-
-    function triggerConfetti() {
-        createConfetti();
-        setTimeout(() => {
-            createConfetti();
-            setTimeout(createConfetti, 200);
-        }, 100);
-        drawConfetti();
-    }
-
-    const state = {
-        players: [], scores: [], currentPlayer: 0,
-        turnTotal: 0, currentRollScore: 0,
-        dice: [], kept: new Set(), activeDice: 6,
-        winScore: 10000, rolling: false, hotDice: false
-    };
-
-    const els = {
-        setup: document.getElementById('setup'), game: document.getElementById('game'),
-        winScore: document.getElementById('winScore'), targetScore: document.getElementById('targetScore'),
-        addPlayer: document.getElementById('addPlayer'), startGame: document.getElementById('startGame'),
-        playerList: document.getElementById('playerList'), rollBtn: document.getElementById('rollBtn'),
-        bankBtn: document.getElementById('bankBtn'), soundBtn: document.getElementById('soundBtn'),
-        newGameBtn: document.getElementById('newGameBtn'), diceContainer: document.getElementById('diceContainer'),
-        currentPlayer: document.getElementById('currentPlayer'), turnScore: document.getElementById('turnScore'),
-        selectedScore: document.getElementById('selectedScore'), rollScore: document.getElementById('rollScore'),
-        statusMessage: document.getElementById('statusMessage'), scoreBoard: document.getElementById('scoreBoard'),
-        gameLog: document.getElementById('gameLog')
-    };
+    const state = { players: [], scores: [], currentPlayer: 0, turnTotal: 0, currentRollScore: 0, dice: [], kept: new Set(), activeDice: 6, winScore: 10000, rolling: false, hotDice: false };
+    const els = { setup: document.getElementById('setup'), game: document.getElementById('game'), winScore: document.getElementById('winScore'), targetScore: document.getElementById('targetScore'), addPlayer: document.getElementById('addPlayer'), startGame: document.getElementById('startGame'), playerList: document.getElementById('playerList'), rollBtn: document.getElementById('rollBtn'), bankBtn: document.getElementById('bankBtn'), soundBtn: document.getElementById('soundBtn'), newGameBtn: document.getElementById('newGameBtn'), diceContainer: document.getElementById('diceContainer'), currentPlayer: document.getElementById('currentPlayer'), turnScore: document.getElementById('turnScore'), selectedScore: document.getElementById('selectedScore'), rollScore: document.getElementById('rollScore'), statusMessage: document.getElementById('statusMessage'), scoreBoard: document.getElementById('scoreBoard'), gameLog: document.getElementById('gameLog') };
 
     document.addEventListener('DOMContentLoaded', () => {
-        els.addPlayer.onclick = () => {
-            if (els.playerList.children.length >= 6) return alert('Max 6 players');
-            const d = document.createElement('div'); d.className = 'player-item';
-            d.innerHTML = `<input type="text" value="Player ${els.playerList.children.length + 1}"><button class="remove-player">×</button>`;
-            els.playerList.appendChild(d);
-        };
+        els.addPlayer.onclick = () => { if (els.playerList.children.length >= 6) return alert('Max 6 players'); const d = document.createElement('div'); d.className = 'player-item'; d.innerHTML = `<input type="text" value="Player ${els.playerList.children.length + 1}"><button class="remove-player">×</button>`; els.playerList.appendChild(d); };
         els.startGame.onclick = startGame;
         els.rollBtn.onclick = rollDice;
         els.bankBtn.onclick = bankScore;
         els.newGameBtn.onclick = () => confirm('New game?') && location.reload();
-        els.soundBtn.onclick = () => {
-            soundEnabled = !soundEnabled;
-            els.soundBtn.textContent = soundEnabled ? 'Sound On' : 'Sound Off';
-        };
+        els.soundBtn.onclick = () => { soundEnabled = !soundEnabled; els.soundBtn.textContent = soundEnabled ? 'Sound On' : 'Sound Off'; };
         els.playerList.onclick = e => { if (e.target.classList.contains('remove-player')) e.target.parentElement.remove(); };
     });
 
@@ -232,61 +152,57 @@
         log(`${state.players[state.currentPlayer]}'s turn`);
     }
 
-    function updateCurrentPlayer() { 
-        els.currentPlayer.textContent = `${state.players[state.currentPlayer]}'s Turn`; 
-    }
+    function updateCurrentPlayer() { els.currentPlayer.textContent = `${state.players[state.currentPlayer]}'s Turn`; }
 
     function calculateScoringDice(diceValues) {
-        const count = {};
-        diceValues.forEach(v => count[v] = (count[v] || 0) + 1);
+        const count = {}; diceValues.forEach(v => count[v] = (count[v] || 0) + 1);
         const scoringIndices = new Set();
 
+        // Special 6-dice hands
         if (diceValues.length === 6) {
-            if (new Set(diceValues).size === 6 || (Object.values(count).every(c => c === 2) && Object.keys(count).length === 3)) {
-                return { score: 1500, indices: diceValues.map((_, i) => i) };
-            }
+            if (new Set(diceValues).size === 6) return { score: 1500, indices: diceValues.map((_, i) => i) };
+            if (Object.values(count).every(c => c === 2) && Object.keys(count).length === 3) return { score: 750, indices: diceValues.map((_, i) => i) };
         }
 
-        for (const num of Object.keys(count)) {
-            const n = Number(num);
+        // Mark all dice in 3+ of a kind
+        for (let n = 1; n <= 6; n++) {
             if (count[n] >= 3) {
-                const groups = Math.floor(count[n] / 3);
-                let marked = 0;
-                for (let i = 0; i < diceValues.length && marked < groups * 3; i++) {
-                    if (diceValues[i] === n) { scoringIndices.add(i); marked++; }
+                for (let i = 0; i < diceValues.length; i++) {
+                    if (diceValues[i] === n) scoringIndices.add(i);
                 }
             }
         }
 
+        // Single 1s and 5s (only if not part of a triple)
         diceValues.forEach((v, i) => {
-            if ((v === 1 && (!count[1] || count[1] < 3)) || (v === 5 && (!count[5] || count[5] < 3))) {
-                scoringIndices.add(i);
-            }
+            if ((v === 1 && count[1] < 3) || (v === 5 && count[5] < 3)) scoringIndices.add(i);
         });
 
-        const score = calculateScore(diceValues, scoringIndices);
+        const score = calculateScore(diceValues);
         return { score, indices: Array.from(scoringIndices) };
     }
 
     function calculateScore(values) {
         if (!values.length) return 0;
-        const count = {};
-        values.forEach(v => count[v] = (count[v] || 0) + 1);
+        const count = {}; values.forEach(v => count[v] = (count[v] || 0) + 1);
         let score = 0;
 
+        // Special hands
         if (values.length === 6 && (new Set(values).size === 6 || (Object.values(count).every(c => c === 2) && Object.keys(count).length === 3))) {
-            return 1500;
+            return values.length === 6 && new Set(values).size === 6 ? 1500 : 750;
         }
 
-        for (const num of Object.keys(count)) {
-            const n = Number(num);
+        // Triples and higher
+        for (let n = 1; n <= 6; n++) {
             if (count[n] >= 3) {
                 const base = n === 1 ? 1000 : n * 100;
                 score += base * Math.floor(count[n] / 3);
             }
         }
-        if (count[1] && count[1] < 3) score += count[1] * 100;
-        if (count[5] && count[5] < 3) score += count[5] * 50;
+
+        // Leftover singles
+        if (count[1] < 3) score += (count[1] || 0) * 100;
+        if (count[5] < 3) score += (count[5] || 0) * 50;
         return score;
     }
 
@@ -324,7 +240,8 @@
             log(`Rolled: ${roll.join(', ')} → +${score}`);
             updateScoreBoard(); state.rolling = false; els.rollBtn.disabled = false;
 
-            if (state.activeDice === 0 && state.kept.size > 0) {
+            // Hot Dice check
+            if (fresh.length === indices.length && fresh.length > 0) {
                 setTimeout(triggerHotDice, 600);
             }
         }, 900);
@@ -337,29 +254,15 @@
             die.className = `die d${val}${anim && !state.kept.has(i) ? ' rolling' : ''}`;
             const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('viewBox', '0 0 100 100');
-            const dots = {
-                1:[[50,50]],2:[[25,25],[75,75]],3:[[25,25],[50,50],[75,75]],
-                4:[[25,25],[25,75],[75,25],[75,75]],
-                5:[[25,25],[25,75],[50,50],[75,25],[75,75]],
-                6:[[25,25],[25,50],[25,75],[75,25],[75,50],[75,75]]
-            };
-            dots[val].forEach(([x,y]) => {
-                const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', 8);
-                c.className = 'dot'; svg.appendChild(c);
-            });
+            const dots = {1:[[50,50]],2:[[25,25],[75,75]],3:[[25,25],[50,50],[75,75]],4:[[25,25],[25,75],[75,25],[75,75]],5:[[25,25],[25,75],[50,50],[75,25],[75,75]],6:[[25,25],[25,50],[25,75],[75,25],[75,50],[75,75]]};
+            dots[val].forEach(([x,y]) => { const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', 8); c.className = 'dot'; svg.appendChild(c); });
             die.appendChild(svg);
             die.onclick = () => {
                 if (state.rolling) return;
                 const isKept = state.kept.has(i);
                 const isScoring = die.classList.contains('scoring');
-                if (isKept) {
-                    state.kept.delete(i); state.activeDice++;
-                    die.classList.remove('kept');
-                } else if (isScoring || state.kept.size > 0) {
-                    state.kept.add(i); state.activeDice--;
-                    die.classList.remove('scoring'); die.classList.add('kept');
-                }
+                if (isKept) { state.kept.delete(i); state.activeDice++; die.classList.remove('kept'); }
+                else if (isScoring || state.kept.size > 0) { state.kept.add(i); state.activeDice--; die.classList.remove('scoring'); die.classList.add('kept'); }
                 updateScores();
                 if (state.activeDice === 0 && !state.hotDice) setTimeout(triggerHotDice, 400);
             };
@@ -371,13 +274,18 @@
 
     function triggerHotDice() {
         state.hotDice = true;
-        state.turnTotal += state.currentRollScore;
+        // Critical fix: Add current roll score to turn total
+        const fresh = state.dice.filter((_, i) => !state.kept.has(i));
+        const hotDiceScore = calculateScore(fresh);
+        state.turnTotal += hotDiceScore;
+
         state.currentRollScore = 0;
         state.activeDice = 6; state.kept.clear(); state.dice = [];
         els.diceContainer.innerHTML = '';
         els.statusMessage.textContent = 'HOT DICE! Rolling all 6 again!';
         els.statusMessage.className = 'hot-dice';
-        log('HOT DICE!');
+        log(`HOT DICE! +${hotDiceScore} added to turn`);
+        updateScoreBoard();
         setTimeout(() => { state.hotDice = false; rollDice(); }, 1200);
     }
 
@@ -387,12 +295,7 @@
         state.scores[state.currentPlayer] += state.turnTotal;
         log(`${state.players[state.currentPlayer]} banks ${state.turnTotal.toLocaleString()}!`);
         updateScoreBoard();
-        if (state.scores[state.currentPlayer] >= state.winScore) { 
-            playWin(); 
-            triggerConfetti(); 
-            endGame(); 
-            return; 
-        }
+        if (state.scores[state.currentPlayer] >= state.winScore) { playWin(); triggerConfetti(); endGame(); return; }
         state.currentPlayer = (state.currentPlayer + 1) % state.players.length;
         setTimeout(nextTurn, 800);
     }
